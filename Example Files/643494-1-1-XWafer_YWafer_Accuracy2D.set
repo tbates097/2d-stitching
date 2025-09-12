@@ -1,0 +1,18 @@
+CreateCalibrationFile : 1
+PlotOptions : 49
+ResultDisplayOptions : 32
+CalculationStandard : 0
+ResultDirectory : C:\Linear Calibrator 2D\643494-1-1-XWafer_YWafer - 08.1.2025\Accuracy2D
+PositionUnitConversionFactor : 1
+PositionUnitName : mm
+ErrorUnitConversionFactor : 1
+ErrorUnitName : Micron
+PlotScaleFactor : 0
+TiffImageFilePath : C:\Linear Calibrator 2D\Testing\Accuracy2D
+ApplyBacklashComp : 0
+MovingWindow : 0
+
+Ignored
+
+:COMMENTS
+
