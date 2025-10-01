@@ -134,10 +134,14 @@ def multizone_step4_finalize_calibration(setup, grid_system):
         Ax1cal[1:-1, 1:-1] = -grid_system['Ax1Sign'] * np.round(Ax1Err_final * 10000)/10000
         Ax2cal[1:-1, 1:-1] = -grid_system['Ax2Sign'] * np.round(Ax2Err_final * 10000)/10000
         
-        # Write calibration file
+        # Write calibration file (GLOBAL/TYPE 3 format)
         write_cal_file(setup['CalFile'], Ax1cal, Ax2cal, grid_system, setup)
-        
         print(f'  Calibration file saved: {setup["CalFile"]}')
+
+        # Also write legacy START2D format to match older MATLAB generator
+        legacy_filename = 'stitched_multizone_python_start2d.cal'
+        write_cal_file_start2d(legacy_filename, Ax1cal, Ax2cal, grid_system, setup)
+        print(f'  Legacy START2D calibration file saved: {legacy_filename}')
     
     # STEP 4E: Generate output data file (if requested)
     if setup['writeOutputFile']:
@@ -191,11 +195,7 @@ def multizone_step4_finalize_calibration(setup, grid_system):
 
 
 def write_cal_file(filename, Ax1cal, Ax2cal, grid_system, setup):
-    """Write calibration file using START2D header format (per attached example)."""
-
-    # Determine units strings
-    pos_unit = 'METRIC' if setup.get('UserUnit', 'METRIC').upper().startswith('METRIC') else 'ENGLISH'
-    cor_unit = f"{pos_unit}/1000"
+    """Write calibration file using MATLAB-style GLOBAL/TYPE 3 header format."""
 
     # Grid spacing (delta)
     dx = float(grid_system['incAx1'])
@@ -205,37 +205,147 @@ def write_cal_file(filename, Ax1cal, Ax2cal, grid_system, setup):
     num_cols = Ax1cal.shape[1]
     num_rows = Ax1cal.shape[0]
 
-    # Offsets (half-extent with the surrounding zero border included)
-    # OFFSETROW applies to rows (Y/Axis2), OFFSETCOL applies to columns (X/Axis1)
-    offset_row = ((num_rows - 1) / 2.0) * dy
-    offset_col = ((num_cols - 1) / 2.0) * dx
+    # Calculate starting positions (with extra border), identical to MATLAB implementation
+    import numpy as _np
+    valid_mask = _np.array(grid_system['avgCount']) > 0
+    startAx1 = float(_np.min(_np.array(grid_system['X'])[valid_mask]) - dx)
+    startAx2 = float(_np.min(_np.array(grid_system['Y'])[valid_mask]) - dy)
 
-    with open(filename, 'w') as f:
-        # START2D header lines
-        # Literal tokens copied from the provided reference header
-        ax2_num = int(grid_system.get('Ax2Num', 0))
-        ax1_num = int(grid_system.get('Ax1Num', 0))
-        out_axis3 = int(setup.get('OutAxis3', 0))
-        out_ax3_value = int(setup.get('OutAx3Value', 0))
-        f.write(f":START2D {ax2_num} {ax1_num} {out_axis3} {out_ax3_value} {dx:.3f} {dy:.3f} {num_cols}\n")
-        f.write(f":START2D POSUNIT={pos_unit} CORUNIT={cor_unit} OFFSETROW = {offset_row:.3f} OFFSETCOL = {offset_col:.3f}\n")
-        f.write("\n")
+    # Open with Unix newlines to match MATLAB file size/format exactly
+    with open(filename, 'w', encoding='utf-8', newline='\n') as f:
+        # Header
+        f.write("GLOBAL\n")
+        f.write("TYPE 3\n")
+        f.write(f"AXES {grid_system.get('Ax1Name','')} {grid_system.get('Ax2Name','')}\n")
+        f.write(f"UNITSYSTEM {setup.get('UserUnit','METRIC')}\n")
+        f.write(f"START {startAx1:.6f} {startAx2:.6f}\n")
+        f.write(f"DELTA {dx:.6f} {dy:.6f}\n")
+        f.write(f"POINTS {num_cols} {num_rows}\n")
+        f.write("END\n")
 
-        # Calibration data: write pairs (Ax1, Ax2) across columns for each row
+        # Calibration data: write pairs (Ax1, Ax2) across columns for each row, 4 decimals
         for i in range(num_rows):
-            line_parts = []
+            tokens = []
             for j in range(num_cols):
-                line_parts.append(f"{Ax1cal[i, j]:.4f}\t{Ax2cal[i, j]:.4f}")
-            f.write("\t".join(line_parts) + "\n")
+                tokens.append(f"{Ax1cal[i, j]:.4f}")
+                tokens.append(f"{Ax2cal[i, j]:.4f}")
+            f.write("\t".join(tokens) + "\n")
+
+
+def write_cal_file_start2d(filename, Ax1cal, Ax2cal, grid_system, setup):
+    """Write calibration file using legacy START2D header/format to match Matlab-Old.cal exactly."""
+
+    import numpy as _np
+
+    # Grid spacing (delta)
+    dx = float(grid_system['incAx1'])
+    dy = float(grid_system['incAx2'])
+
+    # Number of points per row/column (Ax1cal is rows x cols)
+    num_cols = int(Ax1cal.shape[1])  # NumAx1Points in MATLAB naming
+    num_rows = int(Ax1cal.shape[0])  # NumAx2Points in MATLAB naming
+
+    # Determine gantry/third-axis parameters like MATLAB
+    ax1_num = int(grid_system.get('Ax1Num', 0))
+    ax2_num = int(grid_system.get('Ax2Num', 0))
+    ax1_gantry = int(grid_system.get('Ax1Gantry', 0))
+    ax2_gantry = int(grid_system.get('Ax2Gantry', 0))
+
+    num_gantry = 0
+    if ax1_gantry != 0:
+        num_gantry += 1
+    if ax2_gantry != 0:
+        num_gantry += 1
+
+    # Number of output tables (we emit a single merged table like MATLAB's single-table path)
+    # Compute OutAxis3 and OutAx3Value following MATLAB logic for numGantry
+    # Per MATLAB formatting, the first START2D line always prints Ax1Num and Ax2Num
+    # in the OutAxis3 and OutAx3Value slots, regardless of gantry usage.
+    out_axis3 = ax1_num
+    out_ax3_value = ax2_num
+
+    # num_gantry still controls whether the second START2D line includes OUTAXIS3=
+
+    # Sampling distances and signs (MATLAB uses signed sample distance * calDivisor)
+    ax1_sign = int(grid_system.get('Ax1Sign', 1))
+    ax2_sign = int(grid_system.get('Ax2Sign', 1))
+    ax1_samp = float(grid_system.get('Ax1SampDist', dx))
+    ax2_samp = float(grid_system.get('Ax2SampDist', dy))
+    cal_div = int(grid_system.get('calDivisor', 1))
+
+    ax2_step_mm = ax2_sign * ax2_samp * cal_div
+    ax1_step_mm = ax1_sign * ax1_samp * cal_div
+
+    # Compute offsets exactly like MATLAB if origin not at (0,0)
+    # MATLAB uses X and Y matrices (positions) including their true origin; we infer from full grid
+    X = _np.array(grid_system['X'])
+    Y = _np.array(grid_system['Y'])
+    # Use top-left grid origin like MATLAB (Y(1,1) and X(1,1))
+    try:
+        origin_x = float(X[0, 0])
+        origin_y = float(Y[0, 0])
+    except Exception:
+        # Fallback to min valid if shapes are unexpected
+        valid_mask = _np.array(grid_system['avgCount']) > 0
+        if _np.any(valid_mask):
+            origin_x = float(_np.min(X[valid_mask]))
+            origin_y = float(_np.min(Y[valid_mask]))
+        else:
+            origin_x = 0.0
+            origin_y = 0.0
+
+    # MATLAB offsets include the extra border added by Ax?SampDist
+    offset_row = -ax2_sign * (origin_y - ax2_samp) * cal_div  # OFFSETROW (Ax2/row)
+    offset_col = -ax1_sign * (origin_x - ax1_samp) * cal_div  # OFFSETCOL (Ax1/col)
+
+    user_unit = str(grid_system.get('UserUnit', 'METRIC'))
+
+    # Open with Windows CRLF newlines to match MATLAB file behavior
+    with open(filename, 'w', encoding='utf-8', newline='\r\n') as f:
+        # First START2D header line (note trailing space before newline per MATLAB)
+        f.write(
+            f":START2D {ax2_num} {ax1_num} {out_axis3} {out_ax3_value} {ax2_step_mm:.3f} {ax1_step_mm:.3f} {num_cols} \r\n"
+        )
+
+        # Second START2D header line (conditionally include offsets)
+        if num_gantry > 0:
+            # Include OUTAXIS3= only if gantry axes are present
+            if origin_x == 0.0 and origin_y == 0.0:
+                f.write(f":START2D OUTAXIS3={abs(ax1_gantry) or abs(ax2_gantry)} POSUNIT={user_unit} CORUNIT={user_unit}/{1000//max(cal_div,1)} \r\n")
+            else:
+                f.write(
+                    f":START2D OUTAXIS3={abs(ax1_gantry) or abs(ax2_gantry)} POSUNIT={user_unit} CORUNIT={user_unit}/{1000//max(cal_div,1)} "
+                    f"OFFSETROW = {offset_row:.3f} OFFSETCOL = {offset_col:.3f} \r\n"
+                )
+        else:
+            if origin_x == 0.0 and origin_y == 0.0:
+                f.write(f":START2D POSUNIT={user_unit} CORUNIT={user_unit}/{1000//max(cal_div,1)} \r\n")
+            else:
+                f.write(
+                    f":START2D POSUNIT={user_unit} CORUNIT={user_unit}/{1000//max(cal_div,1)} "
+                    f"OFFSETROW = {offset_row:.3f} OFFSETCOL = {offset_col:.3f} \r\n"
+                )
+
+        # Blank line
+        f.write("\r\n")
+
+        # Write calibration data: pairs across columns for each row, 4 decimals, tab-separated, no trailing tab at EOL
+        for i in range(num_rows):
+            tokens = []
+            for j in range(num_cols):
+                tokens.append(f"{Ax1cal[i, j]:.4f}")
+                tokens.append(f"{Ax2cal[i, j]:.4f}")
+            f.write("\t".join(tokens) + "\r\n")
 
         # Footer
-        f.write("\n:END\n")
+        f.write(":END\r\n")
 
 
 def write_accuracy_file(filename, X, Y, Ax1Err, Ax2Err, VectorErr, valid_mask, grid_system, setup):
     """Write accuracy verification file"""
     
-    with open(filename, 'w') as f:
+    # Use Unix newlines to match MATLAB file format/size
+    with open(filename, 'w', encoding='utf-8', newline='\n') as f:
         # Write header
         f.write('% Multi-Zone 2D Accuracy Calibration Results\n')
         f.write(f'% System: {grid_system["model"]} (S/N: {grid_system["SN"]})\n')

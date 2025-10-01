@@ -63,8 +63,8 @@ def step4_calculate_slopes(grid_data):
     print(f"Ax2 straightness slope: {slope_data['Ax2Coef'][0]:.6f} um/mm")
     print(f"Ax2 straightness offset: {slope_data['Ax2Coef'][1]:.6f} um")
     print(f"Orthogonality error: {slope_data['orthog']:.3f} arc-seconds")
-    print(f"RMS Ax1 straightness (after detrend): {np.std(slope_data['Ax1Orthog']):.3f} um")
-    print(f"RMS Ax2 straightness (after detrend): {np.std(slope_data['Ax2Orthog']):.3f} um")
+    print(f"RMS Ax1 straightness (after detrend): {np.std(slope_data['Ax1Orthog'], ddof=1):.3f} um")
+    print(f"RMS Ax2 straightness (after detrend): {np.std(slope_data['Ax2Orthog'], ddof=1):.3f} um")
     print('=================================\n')
     
     return slope_data

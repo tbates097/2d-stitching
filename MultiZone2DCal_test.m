@@ -14,7 +14,7 @@ CalFile = 'Matlab-Old.cal';
 UserUnit = 'METRIC';  % user units = 'METRIC' or 'ENGLISH'
                       % correction units are "user units"/1000
 
-writeOutputFile = 1;
+writeOutputFile = 0;
 OutFile = 'MATLAB_Old.dat';
 
 %%%%%%%%%%%%%%%% Set Calibration Zone Parameters %%%%%%%%%%%%%%%%%%%%
@@ -1262,7 +1262,7 @@ end  %if WriteCalFile
 if writeOutputFile
 % write cal file header based on options set in the inputs and also based on stage test location
 fp = fopen(OutFile,'wt+');
-fprintf(fp,'% %s Position (mm), %s Position (mm), %s Direction Error (micron), %s Direction Error (mm) \n', Ax1Name, Ax2Name, Ax1Name, Ax2Name);
+fprintf(fp,'% %s Position (mm), %s Position (mm), %s Direction Error (micron), %s Direction Error (mm) \n', strrep(Ax1Name,'%','%%'), strrep(Ax2Name,'%','%%'), strrep(Ax1Name,'%','%%'), strrep(Ax2Name,'%','%%'));
 fprintf(fp,'% \n');
 for i = 1:totalSize(1)
     count = 0;

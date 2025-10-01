@@ -176,7 +176,7 @@ def compare_multizone_step4():
         available_total += len(extra_params)
     
     # Save detailed report
-    with open('multizone_step4_comparison_report.txt', 'w') as f:
+    with open('multizone_step4_comparison_report.txt', 'w', encoding='utf-8', newline='\n') as f:
         f.write("MULTI-ZONE STEP 4 COMPARISON REPORT\n")
         f.write("=" * 40 + "\n\n")
         f.write(f"Result: {matches}/{available_total} parameters match\n\n")

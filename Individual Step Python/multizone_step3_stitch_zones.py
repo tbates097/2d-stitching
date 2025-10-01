@@ -62,8 +62,13 @@ def multizone_step3_stitch_zones(setup, grid_system):
             config = step1_parse_header(zone_file)
             data_raw = step2_load_data(zone_file, config)
             grid_data = step3_create_grid(data_raw)
-            slope_data = step4_calculate_slopes(grid_data)
-            slave_data = step5_process_errors(grid_data, slope_data)
+            # Use raw interpolated error grids (no per-zone detrending or origin shift)
+            slave_data = {
+                'X': grid_data['X'].copy(),
+                'Y': grid_data['Y'].copy(),
+                'Ax1Err': grid_data['Ax1Err'].copy(),
+                'Ax2Err': grid_data['Ax2Err'].copy(),
+            }
             
             # Store environmental data
             zone_idx = grid_system['zoneCount']
@@ -140,105 +145,97 @@ def apply_stitching_corrections(master, slave, stitch_type, y_meas_dir):
     
     if stitch_type == 'column':
         # Column stitching: stitching adjacent zones in same row (Axis 1 direction)
-        
-        # Find overlap regions
-        master_overlap_mask = master['X'][0, :] >= np.min(slave['X'])
-        slave_overlap_mask = slave['X'][0, :] <= np.max(master['X'])
-        
-        master_overlap_idx = np.where(master_overlap_mask)[0]
-        slave_overlap_idx = np.where(slave_overlap_mask)[0]
-        
-        if len(master_overlap_idx) == 0 or len(slave_overlap_idx) == 0:
-            print('    Warning: No overlap found for column stitching')
+
+        # Determine overlap like MATLAB: find k where slave X just exceeds max(master X)
+        master_x = master['X'][0, :]
+        slave_x = slave['X'][0, :]
+        max_master_x = np.max(master_x)
+        k = 0
+        while k < slave_x.size and slave_x[k] < max_master_x:
+            k += 1
+        if k == 0:
+            print('    Warning: No overlap found for column stitching (k=0)')
             return slave_corrected
-        
-        print(f'    Overlap: Master cols {master_overlap_idx[0]}-{master_overlap_idx[-1]}, ' +
-              f'Slave cols {slave_overlap_idx[0]}-{slave_overlap_idx[-1]}')
-        
-        # Calculate mean error curves in overlap regions for Ax1
-        master_ax1_mean = np.mean(master['Ax1Err'][:, master_overlap_idx], axis=1)
-        slave_ax1_mean = np.mean(slave['Ax1Err'][:, slave_overlap_idx], axis=1)
-        
-        # Fit linear slopes to mean curves
+
+        m_range = np.arange(master_x.size - k, master_x.size)
+        s_range = np.arange(0, k)
+        print(f'    Overlap: Master cols {m_range[0]}-{m_range[-1]}, Slave cols {s_range[0]}-{s_range[-1]}')
+
+        # Calculate mean error curves in overlap regions for Ax1 (column means over overlap cols)
+        master_ax1_mean = np.mean(master['Ax1Err'][:, m_range], axis=1)
+        slave_ax1_mean = np.mean(slave['Ax1Err'][:, s_range], axis=1)
+
+        # Fit linear slopes to mean curves (Ax1 straightness vs Y)
         master_coef_ax1 = np.polyfit(master['Y'][:, 0], master_ax1_mean, 1)
         slave_coef_ax1 = np.polyfit(slave['Y'][:, 0], slave_ax1_mean, 1)
-        
         print(f'    Ax1 slope correction: Master={master_coef_ax1[0]:.6f}, Slave={slave_coef_ax1[0]:.6f} um/mm')
-        
-        # Apply Ax1 slope corrections to all columns
+
+        # Apply Ax1 slope corrections to all columns of slave
+        y_vec_slave = slave['Y'][:, 0]
         for n in range(slave['X'].shape[1]):
-            slave_corrected['Ax1Err'][:, n] = (slave_corrected['Ax1Err'][:, n] - 
-                                             np.polyval(slave_coef_ax1, slave['Y'][:, 0]) +
-                                             np.polyval(master_coef_ax1, slave['Y'][:, 0]))
-        
+            slave_corrected['Ax1Err'][:, n] = (
+                slave_corrected['Ax1Err'][:, n]
+                - np.polyval(slave_coef_ax1, y_vec_slave)
+                + np.polyval(master_coef_ax1, y_vec_slave)
+            )
+
         # Apply Ax2 orthogonality correction (coupled to Ax1)
         master_coef_ax2_orth = y_meas_dir * master_coef_ax1
         slave_coef_ax2_orth = y_meas_dir * slave_coef_ax1
-        
         for n in range(slave['Y'].shape[0]):
-            slave_corrected['Ax2Err'][n, :] = (slave_corrected['Ax2Err'][n, :] -
-                                             np.polyval(slave_coef_ax2_orth, slave['X'][n, :]) +
-                                             np.polyval(master_coef_ax2_orth, slave['X'][n, :]))
-        
-        # Apply offset corrections to match mean levels in overlap regions
-        master_ax1_offset = np.mean(master['Ax1Err'][:, master_overlap_idx])
-        slave_ax1_offset = np.mean(slave_corrected['Ax1Err'][:, slave_overlap_idx])
-        ax1_correction = master_ax1_offset - slave_ax1_offset
-        
-        master_ax2_offset = np.mean(master['Ax2Err'][:, master_overlap_idx])
-        slave_ax2_offset = np.mean(slave_corrected['Ax2Err'][:, slave_overlap_idx])
-        ax2_correction = master_ax2_offset - slave_ax2_offset
-        
+            slave_corrected['Ax2Err'][n, :] = (
+                slave_corrected['Ax2Err'][n, :]
+                - np.polyval(slave_coef_ax2_orth, slave['X'][n, :])
+                + np.polyval(master_coef_ax2_orth, slave['X'][n, :])
+            )
+
+        # Apply offset corrections to match mean levels in overlap regions (scalar means)
+        ax1_correction = np.mean(master['Ax1Err'][:, m_range]) - np.mean(slave_corrected['Ax1Err'][:, s_range])
+        ax2_correction = np.mean(master['Ax2Err'][:, m_range]) - np.mean(slave_corrected['Ax2Err'][:, s_range])
         slave_corrected['Ax1Err'] += ax1_correction
         slave_corrected['Ax2Err'] += ax2_correction
-        
         print(f'    Offset corrections: Ax1={ax1_correction:.3f}, Ax2={ax2_correction:.3f} um')
         
     else:  # row stitching
         # Row stitching: stitching zones in next row (Axis 2 direction)
-        
-        # Find overlap regions
-        master_overlap_mask = master['Y'][:, 0] >= np.min(slave['Y'])
-        slave_overlap_mask = slave['Y'][:, 0] <= np.max(master['Y'])
-        
-        master_overlap_idx = np.where(master_overlap_mask)[0]
-        slave_overlap_idx = np.where(slave_overlap_mask)[0]
-        
-        if len(master_overlap_idx) == 0 or len(slave_overlap_idx) == 0:
-            print('    Warning: No overlap found for row stitching')
+
+        # Determine overlap like MATLAB using Y positions
+        master_y = master['Y'][:, 0]
+        slave_y = slave['Y'][:, 0]
+        max_master_y = np.max(master_y)
+        k = 0
+        while k < slave_y.size and slave_y[k] < max_master_y:
+            k += 1
+        if k == 0:
+            print('    Warning: No overlap found for row stitching (k=0)')
             return slave_corrected
-        
-        print(f'    Overlap: Master rows {master_overlap_idx[0]}-{master_overlap_idx[-1]}, ' +
-              f'Slave rows {slave_overlap_idx[0]}-{slave_overlap_idx[-1]}')
-        
-        # Calculate mean error curves in overlap regions for Ax2
-        master_ax2_mean = np.mean(master['Ax2Err'][master_overlap_idx, :], axis=0)
-        slave_ax2_mean = np.mean(slave['Ax2Err'][slave_overlap_idx, :], axis=0)
-        
-        # Fit linear slopes to mean curves
+
+        m_range = np.arange(master_y.size - k, master_y.size)
+        s_range = np.arange(0, k)
+        print(f'    Overlap: Master rows {m_range[0]}-{m_range[-1]}, Slave rows {s_range[0]}-{s_range[-1]}')
+
+        # Calculate mean error curves in overlap regions for Ax2 (row means over overlap rows)
+        master_ax2_mean = np.mean(master['Ax2Err'][m_range, :], axis=0)
+        slave_ax2_mean = np.mean(slave['Ax2Err'][s_range, :], axis=0)
+
+        # Fit linear slopes to mean curves (Ax2 straightness vs X)
         master_coef_ax2 = np.polyfit(master['X'][0, :], master_ax2_mean, 1)
         slave_coef_ax2 = np.polyfit(slave['X'][0, :], slave_ax2_mean, 1)
-        
         print(f'    Ax2 slope correction: Master={master_coef_ax2[0]:.6f}, Slave={slave_coef_ax2[0]:.6f} um/mm')
-        
-        # Apply Ax2 slope corrections to all rows
+
+        # Apply Ax2 slope corrections to all rows of slave
         for n in range(slave['Y'].shape[0]):
-            slave_corrected['Ax2Err'][n, :] = (slave_corrected['Ax2Err'][n, :] -
-                                             np.polyval(slave_coef_ax2, slave['X'][n, :]) +
-                                             np.polyval(master_coef_ax2, slave['X'][n, :]))
-        
-        # Apply offset corrections to match mean levels in overlap regions
-        master_ax1_offset = np.mean(master['Ax1Err'][master_overlap_idx, :])
-        slave_ax1_offset = np.mean(slave_corrected['Ax1Err'][slave_overlap_idx, :])
-        ax1_correction = master_ax1_offset - slave_ax1_offset
-        
-        master_ax2_offset = np.mean(master['Ax2Err'][master_overlap_idx, :])
-        slave_ax2_offset = np.mean(slave_corrected['Ax2Err'][slave_overlap_idx, :])
-        ax2_correction = master_ax2_offset - slave_ax2_offset
-        
+            slave_corrected['Ax2Err'][n, :] = (
+                slave_corrected['Ax2Err'][n, :]
+                - np.polyval(slave_coef_ax2, slave['X'][n, :])
+                + np.polyval(master_coef_ax2, slave['X'][n, :])
+            )
+
+        # Apply scalar offset corrections using overlap regions
+        ax1_correction = np.mean(master['Ax1Err'][m_range, :]) - np.mean(slave_corrected['Ax1Err'][s_range, :])
+        ax2_correction = np.mean(master['Ax2Err'][m_range, :]) - np.mean(slave_corrected['Ax2Err'][s_range, :])
         slave_corrected['Ax1Err'] += ax1_correction
         slave_corrected['Ax2Err'] += ax2_correction
-        
         print(f'    Offset corrections: Ax1={ax1_correction:.3f}, Ax2={ax2_correction:.3f} um')
     
     return slave_corrected

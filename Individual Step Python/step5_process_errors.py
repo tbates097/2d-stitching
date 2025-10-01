@@ -55,9 +55,9 @@ def step5_process_errors(grid_data, slope_data):
     processed_data['maxVectorErr'] = np.max(processed_data['VectorErr'])
     
     # Calculate RMS accuracy values
-    processed_data['rmsAx1'] = np.std(processed_data['Ax1Err'])
-    processed_data['rmsAx2'] = np.std(processed_data['Ax2Err'])
-    processed_data['rmsVector'] = np.std(processed_data['VectorErr'])
+    processed_data['rmsAx1'] = np.std(processed_data['Ax1Err'], ddof=1)
+    processed_data['rmsAx2'] = np.std(processed_data['Ax2Err'], ddof=1)
+    processed_data['rmsVector'] = np.std(processed_data['VectorErr'], ddof=1)
     
     # Calculate accuracy amplitudes (half of peak-to-peak)
     processed_data['Ax1amplitude'] = processed_data['pkAx1'] / 2
