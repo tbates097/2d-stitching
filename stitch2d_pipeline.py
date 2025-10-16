@@ -218,34 +218,68 @@ def step2_load_data(input_file, config):
 
 def step3_create_grid(data_raw):
     """
-    Create 2D position and error matrices using griddata interpolation.
-    Preserves logic from step3_create_grid.py
+    Create 2D position and error matrices using direct grid reconstruction.
+    Since measurement data is already on a complete rectangular grid,
+    we can use direct reshape operations instead of interpolation.
+    This eliminates interpolation artifacts and matches MATLAB behavior.
     """
     grid_data = {}
+    
+    # Create position meshgrids (same as before)
     X, Y = np.meshgrid(data_raw['Ax1Pos'], data_raw['Ax2Pos'])
     grid_data['X'] = X
     grid_data['Y'] = Y
     grid_data['SizeGrid'] = X.shape
-
-    maxAx1 = np.max(data_raw['Ax1PosCmd']) - np.min(data_raw['Ax1PosCmd'])
-    maxAx2 = np.max(data_raw['Ax2PosCmd']) - np.min(data_raw['Ax2PosCmd'])
-    if maxAx1 == 0:
-        maxAx1 = 1.0
-    if maxAx2 == 0:
-        maxAx2 = 1.0
-
-    points = np.column_stack((data_raw['Ax1PosCmd'] / maxAx1, data_raw['Ax2PosCmd'] / maxAx2))
-    xi = np.column_stack((X.flatten() / maxAx1, Y.flatten() / maxAx2))
-
-    ax1_err_flat = griddata(points, data_raw['Ax1RelErr_um'], xi, method='linear')
-    grid_data['Ax1Err'] = ax1_err_flat.reshape(X.shape)
-
-    ax2_err_flat = griddata(points, data_raw['Ax2RelErr_um'], xi, method='linear')
-    grid_data['Ax2Err'] = ax2_err_flat.reshape(X.shape)
-
-    grid_data['maxAx1'] = maxAx1
-    grid_data['maxAx2'] = maxAx2
-
+    
+    # Get grid dimensions
+    num_ax1_points = len(data_raw['Ax1Pos'])
+    num_ax2_points = len(data_raw['Ax2Pos'])
+    
+    # Verify that data is on a complete rectangular grid
+    expected_points = num_ax1_points * num_ax2_points
+    actual_points = len(data_raw['Ax1RelErr_um'])
+    
+    if actual_points != expected_points:
+        print(f"Warning: Expected {expected_points} points but got {actual_points}. Using interpolation fallback.")
+        # Fallback to original interpolation method
+        maxAx1 = np.max(data_raw['Ax1PosCmd']) - np.min(data_raw['Ax1PosCmd'])
+        maxAx2 = np.max(data_raw['Ax2PosCmd']) - np.min(data_raw['Ax2PosCmd'])
+        if maxAx1 == 0:
+            maxAx1 = 1.0
+        if maxAx2 == 0:
+            maxAx2 = 1.0
+        
+        points = np.column_stack((data_raw['Ax1PosCmd'] / maxAx1, data_raw['Ax2PosCmd'] / maxAx2))
+        xi = np.column_stack((X.flatten() / maxAx1, Y.flatten() / maxAx2))
+        
+        ax1_err_flat = griddata(points, data_raw['Ax1RelErr_um'], xi, method='linear')
+        grid_data['Ax1Err'] = ax1_err_flat.reshape(X.shape)
+        
+        ax2_err_flat = griddata(points, data_raw['Ax2RelErr_um'], xi, method='linear')
+        grid_data['Ax2Err'] = ax2_err_flat.reshape(X.shape)
+        
+        grid_data['maxAx1'] = maxAx1
+        grid_data['maxAx2'] = maxAx2
+    else:
+        # Direct grid reconstruction - data is already gridded!
+        print(f"Data is on complete {num_ax1_points}x{num_ax2_points} grid. Using direct reshape (no interpolation).")
+        
+        # Reshape error data directly to match the grid structure  
+        # Data scans Ax1 (36 points) for each Ax2 value (36 rows)
+        # So reshape to (num_ax2_points, num_ax1_points) = (36 rows, 36 cols)
+        grid_data['Ax1Err'] = data_raw['Ax1RelErr_um'].reshape(num_ax2_points, num_ax1_points)
+        grid_data['Ax2Err'] = data_raw['Ax2RelErr_um'].reshape(num_ax2_points, num_ax1_points)
+        
+        # Store normalization factors for compatibility (though not used for direct reshape)
+        maxAx1 = np.max(data_raw['Ax1PosCmd']) - np.min(data_raw['Ax1PosCmd'])
+        maxAx2 = np.max(data_raw['Ax2PosCmd']) - np.min(data_raw['Ax2PosCmd'])
+        if maxAx1 == 0:
+            maxAx1 = 1.0
+        if maxAx2 == 0:
+            maxAx2 = 1.0
+        grid_data['maxAx1'] = maxAx1
+        grid_data['maxAx2'] = maxAx2
+    
     return grid_data
 
 
@@ -317,6 +351,44 @@ def step5_process_errors(grid_data, slope_data):
 
     return processed_data
 
+def step5_process_errors_multizone(grid_data, slope_data):
+    """Process errors for multizone stitching - preserves absolute reference.
+    
+    This variant of step5 does NOT apply zero-referencing to preserve
+    the absolute error references that multizone stitching depends on.
+    Zero-referencing is applied later after all stitching is complete.
+    """
+    processed_data = deepcopy(grid_data)
+    
+    # Add slope calculation results
+    processed_data.update(slope_data)
+    
+    # Remove best-fit lines (slope errors) from error data
+    for i in range(processed_data['SizeGrid'][1]):
+        processed_data['Ax1Err'][:, i] = processed_data['Ax1Err'][:, i] - slope_data['Ax1Line']
+    for i in range(processed_data['SizeGrid'][0]):
+        processed_data['Ax2Err'][i, :] = processed_data['Ax2Err'][i, :] - slope_data['Ax2Line']
+
+    # DO NOT apply zero-referencing here for multizone stitching
+    # This will be applied later after stitching is complete
+    
+    processed_data['VectorErr'] = np.sqrt(processed_data['Ax1Err']**2 + processed_data['Ax2Err']**2)
+
+    processed_data['pkAx1'] = np.max(processed_data['Ax1Err']) - np.min(processed_data['Ax1Err'])
+    processed_data['pkAx2'] = np.max(processed_data['Ax2Err']) - np.min(processed_data['Ax2Err'])
+    processed_data['maxVectorErr'] = np.max(processed_data['VectorErr'])
+
+    processed_data['rmsAx1'] = np.std(processed_data['Ax1Err'], ddof=1)
+    processed_data['rmsAx2'] = np.std(processed_data['Ax2Err'], ddof=1)
+    processed_data['rmsVector'] = np.std(processed_data['VectorErr'], ddof=1)
+
+    processed_data['Ax1amplitude'] = processed_data['pkAx1'] / 2
+    processed_data['Ax2amplitude'] = processed_data['pkAx2'] / 2
+
+    processed_data['slope_data'] = slope_data.copy()
+
+    return processed_data
+
 
 # -------------------------------------
 # Multizone stitching helpers (ported)
@@ -327,20 +399,35 @@ def apply_stitching_corrections(master, slave, stitch_type, y_meas_dir, diag=Fal
     slave_corrected = deepcopy(slave)
 
     if stitch_type == 'column':
-        # Determine overlap like MATLAB: find k where slave X just exceeds max(master X)
+        # EXACT MATLAB overlap detection algorithm (from MultiZone2DCal.m lines 182-190)
         master_x = master['X'][0, :]
         slave_x = slave['X'][0, :]
-        max_master_x = np.max(master_x)
+        
+        # MATLAB: Find how many slave columns have X < max(master X)
+        max_master_x = np.max(master['X'])
         k = 0
-        while k < slave_x.size and slave_x[k] < max_master_x:
-            k += 1
+        for col_idx in range(slave_x.shape[0]):
+            if slave_x[col_idx] < max_master_x:
+                k += 1
+            else:
+                break
+        
         if k == 0:
-            print('    Warning: No overlap found for column stitching (k=0)')
+            print('    Warning: No overlap found for column stitching')
             return slave_corrected
-
-        m_range = np.arange(master_x.size - k, master_x.size)
-        s_range = np.arange(0, k)
-        print(f'    Overlap: Master cols {m_range[0]}-{m_range[-1]}, Slave cols {s_range[0]}-{s_range[-1]}')
+        
+        # MATLAB: mRange = ((Ax1size(2)-k+1): Ax1size(2))
+        #         sRange = (1:k)
+        # Convert to Python 0-based indexing:
+        master_size = master_x.shape[0] 
+        m_range = np.arange(master_size - k, master_size)  # Right k columns of master
+        s_range = np.arange(k)  # Left k columns of slave
+        
+        if len(m_range) == 0 or len(s_range) == 0:
+            print('    Warning: Empty overlap ranges')
+            return slave_corrected
+            
+        print(f'    Overlap: Master cols {m_range[0]}-{m_range[-1]}, Slave cols {s_range[0]}-{s_range[-1]} (k={k})')
 
         # Mean Ax1 error across overlap columns (vector vs Y)
         master_ax1_mean = np.mean(master['Ax1Err'][:, m_range], axis=1)
@@ -400,19 +487,24 @@ def apply_stitching_corrections(master, slave, stitch_type, y_meas_dir, diag=Fal
         print(f'    Offset corrections: Ax1={ax1_correction:.3f}, Ax2={ax2_correction:.3f} um')
 
     else:  # row stitching
-        # Determine overlap like MATLAB using Y positions
+        # MATLAB-compatible overlap detection for row stitching
         master_y = master['Y'][:, 0]
         slave_y = slave['Y'][:, 0]
-        max_master_y = np.max(master_y)
-        k = 0
-        while k < slave_y.size and slave_y[k] < max_master_y:
-            k += 1
-        if k == 0:
-            print('    Warning: No overlap found for row stitching (k=0)')
+        
+        # MATLAB algorithm: master_overlap_idx = find(master.Y(:,1) >= min(min(slave.Y)))
+        #                   slave_overlap_idx = find(slave.Y(:,1) <= max(max(master.Y)))
+        min_slave_y = np.min(slave['Y'])
+        max_master_y = np.max(master['Y'])
+        
+        master_overlap_idx = np.where(master_y >= min_slave_y)[0]
+        slave_overlap_idx = np.where(slave_y <= max_master_y)[0]
+        
+        if len(master_overlap_idx) == 0 or len(slave_overlap_idx) == 0:
+            print('    Warning: No overlap found for row stitching')
             return slave_corrected
-
-        m_range = np.arange(master_y.size - k, master_y.size)
-        s_range = np.arange(0, k)
+        
+        m_range = master_overlap_idx
+        s_range = slave_overlap_idx
         print(f'    Overlap: Master rows {m_range[0]}-{m_range[-1]}, Slave rows {s_range[0]}-{s_range[-1]}')
 
         # Mean Ax2 error across overlap rows (vector vs X)
@@ -603,16 +695,17 @@ def save_plots(plot_path, X, Y, Ax1Err, Ax2Err, VectorErr):
 # ----------------------
 
 def process_single_zone(zone_file):
-    """Run complete single-zone pipeline and return dicts; for stitching use RAW grid (no per-zone slope removal)."""
+    """Run complete single-zone pipeline and return dicts; for stitching preserve absolute reference."""
     config = step1_parse_header(zone_file)
     data_raw = step2_load_data(zone_file, config)
     grid_data = step3_create_grid(data_raw)
 
-    # Compute per-zone slopes/processed (for reporting only), but DO NOT use for stitching
+    # Compute per-zone slopes
     slope_data = step4_calculate_slopes(grid_data)
-    processed_data = step5_process_errors(grid_data, slope_data)
+    # Use multizone-compatible step5 that preserves absolute error references
+    processed_data = step5_process_errors_multizone(grid_data, slope_data)
 
-    # For stitching, MATCH MATLAB: use per-zone processed errors (slopes removed, origin zeroed)
+    # For stitching, MATCH MATLAB: use per-zone processed errors with slopes removed but absolute reference preserved
     zone = {
         'X': processed_data['X'].copy(),
         'Y': processed_data['Y'].copy(),
@@ -753,23 +846,35 @@ def stitch_and_calibrate(zone_files, rows, cols, out_cal, out_dat, plot_path=Non
     Ax1Err_avg[valid_mask] = Ax1Err_full[valid_mask] / avgCount[valid_mask]
     Ax2Err_avg[valid_mask] = Ax2Err_full[valid_mask] / avgCount[valid_mask]
 
-    # Remove global slopes, compute orthogonality (as in multizone_step4_finalize_calibration)
-    valid_rows = np.any(valid_mask, axis=1)
-    valid_cols = np.any(valid_mask, axis=0)
-    # Guard against degenerate masks
-    if not np.any(valid_rows) or not np.any(valid_cols):
-        raise RuntimeError('No valid data accumulated; check inputs.')
+    # Save stitched data BEFORE slope removal for debugging (like MATLAB does)
+    try:
+        sio.savemat('python_stitched_before_slopes.mat', {
+            'X': X_avg,
+            'Y': Y_avg, 
+            'Ax1Err_before_slopes': Ax1Err_avg,
+            'Ax2Err_before_slopes': Ax2Err_avg,
+            'avgCount': avgCount
+        })
+        print('Pre-slope-removal data saved for debugging: python_stitched_before_slopes.mat')
+    except Exception as e:
+        print(f'Warning: could not save pre-slope data ({e})')
 
-    Ax1_mean = np.mean(Ax1Err_avg[valid_mask].reshape(-1, np.sum(valid_cols)), axis=1)
-    Ax2_mean = np.mean(Ax2Err_avg[valid_mask].reshape(np.sum(valid_rows), -1), axis=0)
-    Y_valid = Y_avg[valid_rows, 0]
-    X_valid = X_avg[0, valid_cols]
+    # Remove global slopes, compute orthogonality (match MATLAB step4_calculate_slopes exactly)
+    # Calculate mean straightness errors along each axis (same as MATLAB)
+    # Ax1 straightness: average error in Ax1 direction vs Ax2 position
+    Ax1_mean = np.mean(Ax1Err_avg, axis=1)  # Average across rows (Ax1 direction)
+    Ax2_mean = np.mean(Ax2Err_avg, axis=0)  # Average across columns (Ax2 direction)
 
-    Ax1Coef = np.polyfit(Y_valid, Ax1_mean, 1)
-    Ax2Coef = np.polyfit(X_valid, Ax2_mean, 1)
+    # Fit linear slopes to the mean straightness errors (same as MATLAB)
+    # Ax1Coef: slope of Ax1 error vs Ax2 position (units: microns/mm)
+    Ax1Coef = np.polyfit(Y_avg[:, 0], Ax1_mean, 1)
+    # Ax2Coef: slope of Ax2 error vs Ax1 position (units: microns/mm)
+    Ax2Coef = np.polyfit(X_avg[0, :], Ax2_mean, 1)
+    print(f'Debug: Global slope coefficients - Ax1: {Ax1Coef}, Ax2: {Ax2Coef}')
     y_meas_dir = -1
     Ax1Line = np.polyval(Ax1Coef, Y_avg[:, 0])
     Ax2Line = np.polyval(y_meas_dir * Ax1Coef, X_avg[0, :])
+    print(f'Debug: Slope lines at origin - Ax1Line[0]: {Ax1Line[0]:.6f}, Ax2Line[0]: {Ax2Line[0]:.6f}')
 
     for i in range(num_points_ax1):
         if np.any(valid_mask[:, i]):
@@ -783,8 +888,11 @@ def stitch_and_calibrate(zone_files, rows, cols, out_cal, out_dat, plot_path=Non
 
     # Zero-reference at origin if valid
     if valid_mask[0, 0]:
-        Ax1Err_avg = Ax1Err_avg - Ax1Err_avg[0, 0]
-        Ax2Err_avg = Ax2Err_avg - Ax2Err_avg[0, 0]
+        ax1_offset = Ax1Err_avg[0, 0]
+        ax2_offset = Ax2Err_avg[0, 0]
+        print(f'Debug: Zero-referencing offsets - Ax1: {ax1_offset:.6f}, Ax2: {ax2_offset:.6f}')
+        Ax1Err_avg = Ax1Err_avg - ax1_offset
+        Ax2Err_avg = Ax2Err_avg - ax2_offset
 
     VectorErr = np.sqrt(Ax1Err_avg**2 + Ax2Err_avg**2)
 
