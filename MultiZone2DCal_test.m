@@ -1,8 +1,15 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+d% MultiZone2DCal_test - Octave-compatible version for debugging
+=======
+% MultiZone2DCal_test - Octave-compatible version for debugging
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
 % MultiZone2DCal_test - Octave-compatible version for debugging
 =======
 d% MultiZone2DCal_test - Octave-compatible version for debugging
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
 % This simplified version processes 4 zones and outputs debug information
 % for comparison with Python implementation
 
@@ -13,6 +20,16 @@ close all;
 zone_files = {
     'MATLAB Source/642583-1-1-CZ1.dat',
 <<<<<<< HEAD
+<<<<<<< HEAD
+    'MATLAB Source/642583-1-1-CZ2.dat',
+    'MATLAB Source/642583-1-1-CZ3.dat',
+    'MATLAB Source/pwd642583-1-1-CZ4.dat'
+=======
+    'MATLAB Source/642583-1-1-CZ2.dat', 
+    'MATLAB Source/642583-1-1-CZ3.dat',
+    'MATLAB Source/642583-1-1-CZ4.dat'
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
     'MATLAB Source/642583-1-1-CZ2.dat', 
     'MATLAB Source/642583-1-1-CZ3.dat',
     'MATLAB Source/642583-1-1-CZ4.dat'
@@ -21,6 +38,7 @@ zone_files = {
     'MATLAB Source/642583-1-1-CZ3.dat',
     'MATLAB Source/pwd642583-1-1-CZ4.dat'
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
 };
 
 % Grid parameters
@@ -38,15 +56,32 @@ y_meas_dir = -1;
 zone_count = 0;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+% Process zones in row-major order
+=======
+% Process zones in row-major order  
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
 % Process zones in row-major order  
 =======
 % Process zones in row-major order
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
 for i = 1:numRow
     for j = 1:numCol
         zone_idx = (i-1)*numCol + j;
         zone_file = zone_files{zone_idx};
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+        fprintf('\n--- Processing Zone %d: Row %d, Col %d -> %s ---\n', zone_count+1, i, j, zone_file);
+
+=======
+        
+        fprintf('\n--- Processing Zone %d: Row %d, Col %d -> %s ---\n', zone_count+1, i, j, zone_file);
+        
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
         
         fprintf('\n--- Processing Zone %d: Row %d, Col %d -> %s ---\n', zone_count+1, i, j, zone_file);
         
@@ -55,37 +90,59 @@ for i = 1:numRow
         fprintf('\n--- Processing Zone %d: Row %d, Col %d -> %s ---\n', zone_count+1, i, j, zone_file);
 
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
         if (i == 1) && (j == 1)  % First zone
             fprintf('Processing first zone as master reference\n');
             data = A3200ACC2DMULTIZONE(zone_file);
             zone_count = zone_count + 1;
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+            % Store master data
+            Ax1Master = data.X;
+            Ax2Master = data.Y;
+            Ax1MasErr = data.Ax1Err;
+            Ax2MasErr = data.Ax2Err;
+<<<<<<< HEAD
+=======
+            
+=======
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+
+=======
             
             % Store master data
             Ax1Master = data.X;
             Ax2Master = data.Y; 
             Ax1MasErr = data.Ax1Err;
             Ax2MasErr = data.Ax2Err;
+<<<<<<< HEAD
             
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
 =======
 
-            % Store master data
-            Ax1Master = data.X;
-            Ax2Master = data.Y;
-            Ax1MasErr = data.Ax1Err;
-            Ax2MasErr = data.Ax2Err;
-
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
             % Store row master for next row
             rowAx1Master = Ax1Master;
             rowAx2Master = Ax2Master;
             rowAx1MasErr = Ax1MasErr;
             rowAx2MasErr = Ax2MasErr;
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
             
 =======
 
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
             % Store system info
             SN = data.SN;
             Ax1Name = data.Ax1Name;
@@ -95,10 +152,17 @@ for i = 1:numRow
             Ax1Sign = data.Ax1Sign;
             Ax2Sign = data.Ax2Sign;
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
             
 =======
 
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
         else
             % Convert previous slave to master if not first zone
             if exist('Ax1Slave', 'var')
@@ -109,37 +173,65 @@ for i = 1:numRow
             end
         end
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+        
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
         
 =======
 
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
         % Process subsequent zones
         if j ~= numCol  % Not last column - do column stitching
             fprintf('Column stitching: processing next column zone\n');
             slave_data = A3200ACC2DMULTIZONE(zone_files{zone_idx + 1});
             zone_count = zone_count + 1;
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
             
 =======
 
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
             Ax1Slave = slave_data.X;
             Ax2Slave = slave_data.Y;
             Ax1SlaveErr = slave_data.Ax1Err;
             Ax2SlaveErr = slave_data.Ax2Err;
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+            % Find overlap
+            overlap_ax1 = max(max(Ax1Master)) - min(min(Ax1Slave));
+            fprintf('  Column overlap distance: %.3f mm\n', overlap_ax1);
+=======
             
             % Find overlap
             overlap_ax1 = max(max(Ax1Master)) - min(min(Ax1Slave));
             fprintf('  Column overlap distance: %.3f mm\n', overlap_ax1);
             
 =======
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
 
+=======
+            
             % Find overlap
             overlap_ax1 = max(max(Ax1Master)) - min(min(Ax1Slave));
             fprintf('  Column overlap distance: %.3f mm\n', overlap_ax1);
+<<<<<<< HEAD
+            
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
 
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
             % Find overlap indices (simplified)
             Ax1size = size(Ax1Master);
             k = 1;
@@ -147,6 +239,24 @@ for i = 1:numRow
                 k = k + 1;
             end
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+            if k > 1
+                m_range = (Ax1size(2)-k+2):Ax1size(2);  % Master overlap columns
+                s_range = 1:(k-1);  % Slave overlap columns
+
+                fprintf('  Overlap ranges: Master cols %d-%d, Slave cols %d-%d\n', ...
+                        m_range(1), m_range(end), s_range(1), s_range(end));
+<<<<<<< HEAD
+=======
+                
+=======
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+
+=======
             
             if k > 1
                 m_range = (Ax1size(2)-k+2):Ax1size(2);  % Master overlap columns
@@ -154,23 +264,39 @@ for i = 1:numRow
                 
                 fprintf('  Overlap ranges: Master cols %d-%d, Slave cols %d-%d\n', ...
                         m_range(1), m_range(end), s_range(1), s_range(end));
+<<<<<<< HEAD
                 
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
 =======
 
-            if k > 1
-                m_range = (Ax1size(2)-k+2):Ax1size(2);  % Master overlap columns
-                s_range = 1:(k-1);  % Slave overlap columns
-
-                fprintf('  Overlap ranges: Master cols %d-%d, Slave cols %d-%d\n', ...
-                        m_range(1), m_range(end), s_range(1), s_range(end));
-
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
                 % Calculate mean errors in overlap region
                 Ax1MasErrMean = mean(Ax1MasErr(:, m_range), 2);
                 Ax2MasErrMean = mean(Ax2MasErr(:, m_range), 1);
                 Ax1SlaveErrMean = mean(Ax1SlaveErr(:, s_range), 2);
                 Ax2SlaveErrMean = mean(Ax2SlaveErr(:, s_range), 1);
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+                
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+                % Fit slopes
+                mcoef = polyfit(Ax2Master(:,1), Ax1MasErrMean, 1);
+                scoef = polyfit(Ax2Slave(:,1), Ax1SlaveErrMean, 1);
+                mcoef2 = polyfit(Ax1Master(1,:), Ax2MasErrMean, 1);
+                scoef2 = polyfit(Ax1Slave(1,:), Ax2SlaveErrMean, 1);
+
+                fprintf('  Ax1 slope correction: Master=%.6f, Slave=%.6f\n', mcoef(1), scoef(1));
+                fprintf('  Ax2 slope correction: Master=%.6f, Slave=%.6f\n', mcoef2(1), scoef2(1));
+<<<<<<< HEAD
+=======
+                
+=======
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+
+=======
                 
                 % Fit slopes
                 mcoef = polyfit(Ax2Master(:,1), Ax1MasErrMean, 1);
@@ -180,19 +306,13 @@ for i = 1:numRow
                 
                 fprintf('  Ax1 slope correction: Master=%.6f, Slave=%.6f\n', mcoef(1), scoef(1));
                 fprintf('  Ax2 slope correction: Master=%.6f, Slave=%.6f\n', mcoef2(1), scoef2(1));
+<<<<<<< HEAD
                 
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
 =======
 
-                % Fit slopes
-                mcoef = polyfit(Ax2Master(:,1), Ax1MasErrMean, 1);
-                scoef = polyfit(Ax2Slave(:,1), Ax1SlaveErrMean, 1);
-                mcoef2 = polyfit(Ax1Master(1,:), Ax2MasErrMean, 1);
-                scoef2 = polyfit(Ax1Slave(1,:), Ax2SlaveErrMean, 1);
-
-                fprintf('  Ax1 slope correction: Master=%.6f, Slave=%.6f\n', mcoef(1), scoef(1));
-                fprintf('  Ax2 slope correction: Master=%.6f, Slave=%.6f\n', mcoef2(1), scoef2(1));
-
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
                 % Apply slope corrections
                 Ax1size = size(Ax1Slave);
                 for n = 1:Ax1size(1)
@@ -202,6 +322,31 @@ for i = 1:numRow
                     Ax1SlaveErr(:,n) = Ax1SlaveErr(:,n) - polyval(scoef, Ax2Slave(:,1)) + polyval(mcoef, Ax2Slave(:,1));
                 end
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+                
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+                % Apply offset corrections
+                ax1_correction = mean(mean(Ax1MasErr(:, m_range))) - mean(mean(Ax1SlaveErr(:, s_range)));
+                ax2_correction = mean(mean(Ax2MasErr(:, m_range))) - mean(mean(Ax2SlaveErr(:, s_range)));
+
+                Ax1SlaveErr = Ax1SlaveErr + ax1_correction;
+                Ax2SlaveErr = Ax2SlaveErr + ax2_correction;
+
+                fprintf('  Offset corrections: Ax1=%.6f, Ax2=%.6f\n', ax1_correction, ax2_correction);
+            end
+
+            % Advance to next column
+            j = j + 1;
+        end
+<<<<<<< HEAD
+=======
+        
+=======
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
+
+=======
                 
                 % Apply offset corrections
                 ax1_correction = mean(mean(Ax1MasErr(:, m_range))) - mean(mean(Ax1SlaveErr(:, s_range)));
@@ -216,24 +361,13 @@ for i = 1:numRow
             % Advance to next column
             j = j + 1;
         end
+<<<<<<< HEAD
         
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
 =======
 
-                % Apply offset corrections
-                ax1_correction = mean(mean(Ax1MasErr(:, m_range))) - mean(mean(Ax1SlaveErr(:, s_range)));
-                ax2_correction = mean(mean(Ax2MasErr(:, m_range))) - mean(mean(Ax2SlaveErr(:, s_range)));
-
-                Ax1SlaveErr = Ax1SlaveErr + ax1_correction;
-                Ax2SlaveErr = Ax2SlaveErr + ax2_correction;
-
-                fprintf('  Offset corrections: Ax1=%.6f, Ax2=%.6f\n', ax1_correction, ax2_correction);
-            end
-
-            % Advance to next column
-            j = j + 1;
-        end
-
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
         % Row stitching (simplified for this test)
         if (i > 1) && (j == 1)  % First column of non-first row
             fprintf('Row stitching: would process row transition here\n');
@@ -256,10 +390,17 @@ if exist('Ax1SlaveErr', 'var') && exist('Ax2SlaveErr', 'var')
     fprintf(fid, '%%   Ax2Err: %.6f to %.6f\n', min(min(Ax2SlaveErr)), max(max(Ax2SlaveErr)));
     fprintf(fid, '%% Sample points from final zone:\n');
 <<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+    
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
     
 =======
 
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
     for i = 1:min(10, size(Ax1Slave,1))
         for j = 1:min(10, size(Ax1Slave,2))
             fprintf(fid, '%.6f, %.6f, %.6f, %.6f\n', ...
@@ -270,7 +411,14 @@ if exist('Ax1SlaveErr', 'var') && exist('Ax2SlaveErr', 'var')
 end
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+fprintf('\nTest completed!\n');
+=======
+fprintf('\nTest completed!\n');
+>>>>>>> 1b00b7410a0cc79cd6530b4b3a616e5aa7f43a11
+=======
 fprintf('\nTest completed!\n');
 =======
 fprintf('\nTest completed!\n');
 >>>>>>> 9d6cef5a49ea2ea4fed2b6cb48110279f01319a2
+>>>>>>> 0e54094fc5a292134d19a7e3b539336b132f69fa
